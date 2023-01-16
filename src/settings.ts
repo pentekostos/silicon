@@ -6,12 +6,14 @@ export interface SiliconSettings {
 	apiKey: string;
 	threshold: number;
 	ignoreFolders: string[];
+	includeTags: string[];
 }
 ;
 export const DEFAULT_SETTINGS: SiliconSettings = {
 	apiKey: 'YOUR_API_KEY_HERE',
 	threshold: 0.5,
-	ignoreFolders: ['']
+	ignoreFolders: [''],
+	includeTags: [''],
 };
 export class SiliconSettingTab extends PluginSettingTab {
 	plugin: Silicon;
@@ -70,6 +72,19 @@ export class SiliconSettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					// console.log('Folders: ' + value);
 					this.plugin.settings.ignoreFolders = value.split(',');
+					await this.plugin.saveSettings();
+				}));
+
+		// Setting to select tags to include
+		new Setting(containerEl)
+			.setName('Include Tags')
+			.setDesc('Select tags to include')
+			.addText(text => text
+				.setPlaceholder('Enter tag names separated by commas')
+				.setValue(this.plugin.settings.includeTags.join(','))
+				.onChange(async (value) => {
+					// console.log('Tags: ' + value);
+					this.plugin.settings.includeTags = value.split(',');
 					await this.plugin.saveSettings();
 				}));
 

@@ -1,4 +1,4 @@
-import { Notice, Plugin, } from 'obsidian';
+import { Notice, Plugin, getAllTags } from 'obsidian';
 import { embedText } from 'src/api';
 import { SiliconView, VIEW_TYPE_SILICON } from 'src/view';
 import { SiliconSettings, SiliconSettingTab, DEFAULT_SETTINGS } from './src/settings';
@@ -179,15 +179,7 @@ export default class Silicon extends Plugin {
 		const files = this.app.vault.getMarkdownFiles();
 		
 
-		// Remore viles that are in folders in the ignore list
-		const filesToIndex = files.filter(file => {
-			for (const folder of this.settings.ignoreFolders) {
-				if (file.path.includes(folder)) {
-					return false;
-				}
-			}
-			return true;
-		});
+		const filesToIndex = await this.getFilesToIndex();
 		
 		if (filesToIndex.length == 0) {
 			return;
@@ -230,6 +222,45 @@ export default class Silicon extends Plugin {
 		this.indexLock = false;
 		this.status.setText('⛰');
 		this.status.setAttr('title', 'Silicon ready');
+	}
+
+	// This function returns the files to index
+	async getFilesToIndex() {
+		// Check if the index is already being updated
+		// if (this.indexLock) {
+		// 	return;
+		// }
+		this.indexLock = true;
+		// console.log('Indexing vault');
+		this.status.setText('⧗');
+		this.status.setAttr('title', 'Silicon indexing vault...');
+		// Get all files in the vault
+		const files = this.app.vault.getMarkdownFiles();
+
+
+		// Remore viles that are in folders in the ignore list
+		const folderFilesToIndex = files.filter(file => {
+			for (const folder of this.settings.ignoreFolders) {
+				if (file.path.includes(folder)) {
+					return false;
+				}
+			}
+			return true;
+		});
+
+		// Remove files that are not tagged with a tag in the include list
+		const filesToIndex = folderFilesToIndex.filter(file => {
+			for (const tag of this.settings.includeTags) {
+				const cache = this.app.metadataCache.getFileCache(file);
+				if (!cache) return false;
+				const cachedTags = getAllTags(cache) || [];
+				if (cachedTags.includes("#" + tag)) {
+					return true;
+				}
+			}
+			return false;
+		});
+		return filesToIndex;
 	}
 
 	// This function returns the file paths of the similar files
@@ -311,6 +342,8 @@ export default class Silicon extends Plugin {
 			// console.log(backlinks)
 			results = results.filter(result => !backlinks[result.path]);
 		}
+		const filesToIndex = await this.getFilesToIndex();
+		results = results.filter(result => filesToIndex.find(file => file.path == result.path));
 		// console.log(results)
 		// add these results to the file in db
 		const fileValue = await this.db.get('files', key);
